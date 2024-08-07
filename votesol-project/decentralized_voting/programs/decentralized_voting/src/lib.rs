@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 use anchor_lang::prelude::*;
 
 declare_id!("HefrVwo4RQNfRmP8CWrC81kPFwTZhd4Lou2tkST2dz8A");
@@ -6,101 +8,64 @@ declare_id!("HefrVwo4RQNfRmP8CWrC81kPFwTZhd4Lou2tkST2dz8A");
 pub mod decentralized_voting {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        let project_account = &mut ctx.accounts.project_account;
-        project_account.authority = *ctx.accounts.authority.key;
-        project_account.total_votes = 0;
-        project_account.total_investment = 0;
+    pub fn close(_ctx: Context<CloseCounter>) -> Result<()> {
         Ok(())
     }
 
-    pub fn create_project(
-        ctx: Context<CreateProject>,
-        name: String,
-        description: String,
-        target_amount: u64,
-    ) -> Result<()> {
-        let project = &mut ctx.accounts.project;
-        project.name = name;
-        project.description = description;
-        project.target_amount = target_amount;
-        project.current_amount = 0;
-        project.votes = 0;
-        project.authority = *ctx.accounts.authority.key;
+    pub fn decrement(ctx: Context<Update>) -> Result<()> {
+        ctx.accounts.counter.count = ctx.accounts.counter.count.checked_sub(1).unwrap();
         Ok(())
     }
 
-    pub fn vote(ctx: Context<Vote>) -> Result<()> {
-        let project = &mut ctx.accounts.project;
-        let project_account = &mut ctx.accounts.project_account;
-
-        project.votes += 1;
-        project_account.total_votes += 1;
+    pub fn increment(ctx: Context<Update>) -> Result<()> {
+        ctx.accounts.counter.count = ctx.accounts.counter.count.checked_add(1).unwrap();
         Ok(())
     }
 
-    pub fn invest(ctx: Context<Invest>, amount: u64) -> Result<()> {
-        let project = &mut ctx.accounts.project;
-        let project_account = &mut ctx.accounts.project_account;
+    pub fn initialize(_ctx: Context<InitializeCounter>) -> Result<()> {
+        Ok(())
+    }
 
-        project.current_amount += amount;
-        project_account.total_investment += amount;
+    pub fn set(ctx: Context<Update>, value: u8) -> Result<()> {
+        ctx.accounts.counter.count = value.clone();
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-pub struct Initialize<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 8 + 8)]
-    pub project_account: Account<'info, ProjectAccount>,
+pub struct InitializeCounter<'info> {
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub payer: Signer<'info>,
+
+    #[account(
+  init,
+  space = 8 + Counter::INIT_SPACE,
+  payer = payer
+  )]
+    pub counter: Account<'info, Counter>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct CreateProject<'info> {
-    #[account(init, payer = authority, space = 8 + 32 + 50 + 200 + 8 + 8 + 8 + 32)]
-    pub project: Account<'info, Project>,
+pub struct CloseCounter<'info> {
     #[account(mut)]
-    pub authority: Signer<'info>,
-    pub system_program: Program<'info, System>,
+    pub payer: Signer<'info>,
+
+    #[account(
+  mut,
+  close = payer, // close account and return lamports to payer
+  )]
+    pub counter: Account<'info, Counter>,
 }
 
 #[derive(Accounts)]
-pub struct Vote<'info> {
+pub struct Update<'info> {
     #[account(mut)]
-    pub project: Account<'info, Project>,
-    #[account(mut)]
-    pub project_account: Account<'info, ProjectAccount>,
-    pub authority: Signer<'info>,
-}
-
-#[derive(Accounts)]
-pub struct Invest<'info> {
-    #[account(mut)]
-    pub project: Account<'info, Project>,
-    #[account(mut)]
-    pub project_account: Account<'info, ProjectAccount>,
-    #[account(mut)]
-    pub investor: Signer<'info>,
-    pub system_program: Program<'info, System>,
+    pub counter: Account<'info, Counter>,
 }
 
 #[account]
-pub struct ProjectAccount {
-    pub authority: Pubkey,
-    pub total_votes: u64,
-    pub total_investment: u64,
+#[derive(InitSpace)]
+pub struct Counter {
+    count: u8,
 }
-
-#[account]
-pub struct Project {
-    pub name: String,
-    pub description: String,
-    pub target_amount: u64,
-    pub current_amount: u64,
-    pub votes: u64,
-    pub authority: Pubkey,
-}
-
