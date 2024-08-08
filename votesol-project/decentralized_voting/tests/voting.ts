@@ -26,7 +26,7 @@ describe("crowdfunding", () => {
   });
 
   it("Creates a project", async () => {
-    const projectName = "Test Project";
+    const projectName = `Test Project ${Date.now()}`;
     const [projectPDA] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("project"), Buffer.from(projectName), provider.wallet.publicKey.toBuffer()],
       program.programId
@@ -52,7 +52,7 @@ describe("crowdfunding", () => {
   });
 
   it("Creates a project and invests in it", async () => {
-    const projectName = "Invest Test Project";
+    const projectName = `Investing Project ${Date.now()}`;
     const [projectPDA] = anchor.web3.PublicKey.findProgramAddressSync(
       [Buffer.from("project"), Buffer.from(projectName), provider.wallet.publicKey.toBuffer()],
       program.programId

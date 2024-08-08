@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
 
-declare_id!("HefrVwo4RQNfRmP8CWrC81kPFwTZhd4Lou2tkST2dz8A");
+declare_id!("J78FH4DCfxvVaCJLaFvZaPoYf3V38RXbwWvNXP2zEdGm");
 
 #[program]
 pub mod crowdfunding {
@@ -75,7 +75,7 @@ pub struct Initialize<'info> {
 #[instruction(name: String)]
 pub struct CreateProject<'info> {
     #[account(
-        init,
+        init_if_needed,
         payer = user,
         space = 8 + 32 + 256 + 256 + 8 + 8 + 32,
         seeds = [b"project", name.as_bytes(), user.key().as_ref()],
@@ -125,4 +125,3 @@ pub struct Project {
     pub created_at: i64,
     pub investors: Vec<Pubkey>,
 }
-
