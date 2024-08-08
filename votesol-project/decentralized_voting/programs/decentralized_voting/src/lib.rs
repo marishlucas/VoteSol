@@ -1,88 +1,111 @@
-#![allow(clippy::result_large_err)]
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::clock::Clock;
 
 declare_id!("HefrVwo4RQNfRmP8CWrC81kPFwTZhd4Lou2tkST2dz8A");
 
 #[program]
-pub mod decentralized_voting {
+pub mod crowdfunding {
     use super::*;
 
-    pub fn close(_ctx: Context<CloseCounter>) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let state = &mut ctx.accounts.state;
+        state.project_count = 0;
         Ok(())
     }
 
-    pub fn decrement(ctx: Context<Update>) -> Result<()> {
-        ctx.accounts.counter.count = ctx
-            .accounts
-            .counter
-            .count
-            .checked_sub(1)
-            .ok_or(ProgramError::Underflow)?;
+    pub fn create_project(
+        ctx: Context<CreateProject>,
+        title: String,
+        description: String,
+        target: u64,
+    ) -> Result<()> {
+        let project = &mut ctx.accounts.project;
+        let state = &mut ctx.accounts.state;
+
+        project.title = title;
+        project.description = description;
+        project.target = target;
+        project.amount_collected = 0;
+        project.investor_count = 0;
+        project.creator = ctx.accounts.user.key();
+        project.created_at = Clock::get()?.unix_timestamp;
+
+        state.project_count += 1;
+
         Ok(())
     }
 
-    pub fn increment(ctx: Context<Update>) -> Result<()> {
-        ctx.accounts.counter.count = ctx
-            .accounts
-            .counter
-            .count
-            .checked_add(1)
-            .ok_or(ProgramError::Overflow)?;
-        Ok(())
-    }
+    pub fn invest(ctx: Context<Invest>, amount: u64) -> Result<()> {
+        let project = &mut ctx.accounts.project;
+        let investor = &mut ctx.accounts.investor;
 
-    pub fn initialize(ctx: Context<InitializeCounter>) -> Result<()> {
-        ctx.accounts.counter.count = 0;
-        Ok(())
-    }
+        project.amount_collected += amount;
+        project.investor_count += 1;
+        investor.amount = amount;
 
-    pub fn set(ctx: Context<Update>, value: u8) -> Result<()> {
-        ctx.accounts.counter.count = value;
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-pub struct InitializeCounter<'info> {
+pub struct Initialize<'info> {
+    #[account(init, payer = user, space = 8 + 8)]
+    pub state: Account<'info, State>,
     #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(
-        init,
-        space = 8 + Counter::INIT_SPACE,
-        payer = payer
-    )]
-    pub counter: Account<'info, Counter>,
+    pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct CloseCounter<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
+pub struct CreateProject<'info> {
     #[account(
-        mut,
-        close = payer, // close account and return lamports to payer
+        init,
+        payer = user,
+        space = 8 + 32 + 256 + 256 + 8 + 8 + 8 + 32 + 8
     )]
-    pub counter: Account<'info, Counter>,
+    pub project: Account<'info, Project>,
+    #[account(mut)]
+    pub state: Account<'info, State>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct Update<'info> {
+pub struct Invest<'info> {
     #[account(mut)]
-    pub counter: Account<'info, Counter>,
+    pub project: Account<'info, Project>,
+    #[account(
+        init,
+        payer = user,
+        space = 8 + 32 + 8,
+        seeds = [b"investor", project.key().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub investor: Account<'info, Investor>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[account]
-#[derive(InitSpace)]
-pub struct Counter {
-    count: u8,
+pub struct State {
+    pub project_count: u64,
 }
 
-#[error_code]
-pub enum ProgramError {
-    #[msg("Math operation overflow")]
-    Overflow,
-    #[msg("Math operation underflow")]
-    Underflow,
+#[account]
+pub struct Project {
+    pub title: String,
+    pub description: String,
+    pub target: u64,
+    pub amount_collected: u64,
+    pub investor_count: u64,
+    pub creator: Pubkey,
+    pub created_at: i64,
 }
 
+#[account]
+pub struct Investor {
+    pub user: Pubkey,
+    pub amount: u64,
+}

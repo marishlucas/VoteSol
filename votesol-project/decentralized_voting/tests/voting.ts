@@ -1,100 +1,64 @@
-import * as anchor from '@coral-xyz/anchor';
-import { Program } from '@coral-xyz/anchor';
-import { Keypair } from '@solana/web3.js';
-import { DecentralizedVoting } from '../target/types/decentralized_voting';
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { Crowdfunding } from "../target/types/crowdfunding";
 import { expect } from "chai";
 
-describe('voting', () => {
+describe("crowdfunding", () => {
+  // Configure the client to use the local cluster
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-  const payer = provider.wallet as anchor.Wallet;
 
-  const program = anchor.workspace.DecentralizedVoting as Program<DecentralizedVoting>;
+  const program = anchor.workspace.Crowdfunding as Program<Crowdfunding>;
 
-  const counterKeypair = Keypair.generate();
+  it("Initializes the program state", async () => {
+    const state = anchor.web3.Keypair.generate();
 
-  it('Initialize Voter', async () => {
     await program.methods
       .initialize()
       .accounts({
-        counter: counterKeypair.publicKey,
-        payer: payer.publicKey,
+        state: state.publicKey,
+        user: provider.wallet.publicKey,
       })
-      .signers([counterKeypair])
+      .signers([state])
       .rpc();
 
-    const currentCount = await program.account.counter.fetch(
-      counterKeypair.publicKey
-    );
-
-    expect(currentCount.count).to.equal(0);
+    const stateAccount = await program.account.state.fetch(state.publicKey);
+    expect(stateAccount.projectCount.toNumber()).to.equal(0);
   });
 
-  it('Increment Voter', async () => {
+  it("Creates a project", async () => {
+    const state = anchor.web3.Keypair.generate();
+    const project = anchor.web3.Keypair.generate();
+
+    // First, initialize the state
     await program.methods
-      .increment()
-      .accounts({ counter: counterKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.counter.fetch(
-      counterKeypair.publicKey
-    );
-
-    expect(currentCount.count).to.equal(1);
-  });
-
-  it('Increment Voter Again', async () => {
-    await program.methods
-      .increment()
-      .accounts({ counter: counterKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.counter.fetch(
-      counterKeypair.publicKey
-    );
-
-    expect(currentCount.count).to.equal(2);
-  });
-
-  it('Add Voter Point', async () => {
-    await program.methods
-      .decrement()
-      .accounts({ counter: counterKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.counter.fetch(
-      counterKeypair.publicKey
-    );
-
-    expect(currentCount.count).to.equal(1);
-  });
-
-  it('Set vote value', async () => {
-    await program.methods
-      .set(42)
-      .accounts({ counter: counterKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.counter.fetch(
-      counterKeypair.publicKey
-    );
-
-    expect(currentCount.count).to.equal(42);
-  });
-
-  it('Set close the voter account', async () => {
-    await program.methods
-      .close()
+      .initialize()
       .accounts({
-        payer: payer.publicKey,
-        counter: counterKeypair.publicKey,
+        state: state.publicKey,
+        user: provider.wallet.publicKey,
       })
+      .signers([state])
       .rpc();
 
-    // The account should no longer exist, returning null.
-    const userAccount = await program.account.counter.fetchNullable(
-      counterKeypair.publicKey
-    );
-    expect(userAccount).to.equal(null);
+    // Then, create a project
+    await program.methods
+      .createProject("Test Project", "A test project description", new anchor.BN(1000))
+      .accounts({
+        project: project.publicKey,
+        state: state.publicKey,
+        user: provider.wallet.publicKey,
+      })
+      .signers([project])
+      .rpc();
+
+    const projectAccount = await program.account.project.fetch(project.publicKey);
+    expect(projectAccount.title).to.equal("Test Project");
+    expect(projectAccount.description).to.equal("A test project description");
+    expect(projectAccount.target.toNumber()).to.equal(1000);
+    expect(projectAccount.amountCollected.toNumber()).to.equal(0);
+    expect(projectAccount.investorCount.toNumber()).to.equal(0);
+
+    const stateAccount = await program.account.state.fetch(state.publicKey);
+    expect(stateAccount.projectCount.toNumber()).to.equal(1);
   });
 });
