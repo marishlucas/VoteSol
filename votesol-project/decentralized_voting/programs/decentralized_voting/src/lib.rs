@@ -20,7 +20,6 @@ pub mod crowdfunding {
         target: u64,
     ) -> Result<()> {
         let project = &mut ctx.accounts.project;
-        let state = &mut ctx.accounts.state;
 
         project.title = title;
         project.description = description;
@@ -30,18 +29,19 @@ pub mod crowdfunding {
         project.creator = ctx.accounts.user.key();
         project.created_at = Clock::get()?.unix_timestamp;
 
-        state.project_count += 1;
-
         Ok(())
     }
 
     pub fn invest(ctx: Context<Invest>, amount: u64) -> Result<()> {
         let project = &mut ctx.accounts.project;
-        let investor = &mut ctx.accounts.investor;
+
+        // Check if this user has already invested
+        if !project.investors.contains(&ctx.accounts.user.key()) {
+            project.investor_count += 1;
+            project.investors.push(ctx.accounts.user.key());
+        }
 
         project.amount_collected += amount;
-        project.investor_count += 1;
-        investor.amount = amount;
 
         Ok(())
     }
@@ -56,33 +56,54 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// #[derive(Accounts)]
+// pub struct CreateProject<'info> {
+//     #[account(
+//         init,
+//         payer = user,
+//         space = 8 + 32 + 256 + 256 + 8 + 8 + 8 + 32 + 8
+//     )]
+//     pub project: Account<'info, Project>,
+//     #[account(mut)]
+//     pub state: Account<'info, State>,
+//     #[account(mut)]
+//     pub user: Signer<'info>,
+//     pub system_program: Program<'info, System>,
+// }
+
 #[derive(Accounts)]
+#[instruction(name: String)]
 pub struct CreateProject<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 32 + 256 + 256 + 8 + 8 + 8 + 32 + 8
+        space = 8 + 32 + 256 + 256 + 8 + 8 + 32,
+        seeds = [b"project", name.as_bytes(), user.key().as_ref()],
+        bump
     )]
     pub project: Account<'info, Project>,
-    #[account(mut)]
-    pub state: Account<'info, State>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
+// #[derive(Accounts)]
+// pub struct Invest<'info> {
+//     #[account(mut)]
+//     pub project: Account<'info, Project>,
+//     #[account(mut)]
+//     pub user: Signer<'info>,
+//     pub system_program: Program<'info, System>,
+// }
+
 #[derive(Accounts)]
 pub struct Invest<'info> {
-    #[account(mut)]
-    pub project: Account<'info, Project>,
     #[account(
-        init,
-        payer = user,
-        space = 8 + 32 + 8,
-        seeds = [b"investor", project.key().as_ref(), user.key().as_ref()],
+        mut,
+        seeds = [b"project", project.title.as_bytes(), project.creator.as_ref()],
         bump
     )]
-    pub investor: Account<'info, Investor>,
+    pub project: Account<'info, Project>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -102,10 +123,6 @@ pub struct Project {
     pub investor_count: u64,
     pub creator: Pubkey,
     pub created_at: i64,
+    pub investors: Vec<Pubkey>,
 }
 
-#[account]
-pub struct Investor {
-    pub user: Pubkey,
-    pub amount: u64,
-}

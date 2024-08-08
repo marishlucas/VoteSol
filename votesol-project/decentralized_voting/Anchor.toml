@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-decentralized_voting = "HefrVwo4RQNfRmP8CWrC81kPFwTZhd4Lou2tkST2dz8A"
+decentralized_voting = "J78FH4DCfxvVaCJLaFvZaPoYf3V38RXbwWvNXP2zEdGm"
 
 [registry]
 url = "https://api.apr.dev"
