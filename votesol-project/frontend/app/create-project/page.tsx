@@ -11,6 +11,7 @@ export default function CreateProject() {
   const [target, setTarget] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const { publicKey, signTransaction } = useWallet();
   const router = useRouter();
 
@@ -38,18 +39,21 @@ export default function CreateProject() {
       if (!signTransaction) throw new Error("Wallet is not connected");
       //@ts-ignore
       await createProject(wallet, title, description, parseFloat(target));
-      alert('Project created successfully!');
-
-      // Trigger a revalidation of the projects cache
-      mutate('projects');
-
-      router.push('/');
+      setShowModal(true);
     } catch (error) {
       console.error('Error creating project:', error);
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }
+  };
+
+
+
+  const handleModalConfirm = () => {
+    setShowModal(false);
+    mutate('projects');
+    router.push('/');
   };
 
   return (
@@ -98,17 +102,33 @@ export default function CreateProject() {
                   className="input input-bordered w-full"
                 />
               </div>
-              <button
-                className={`btn btn-primary w-full ${isLoading ? 'loading' : ''}`}
-                type="submit"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Creating...' : 'Create Project'}
-              </button>
+              {isLoading ? (
+                <div className="w-full flex justify-center items-center">
+                  <span className="loading loading-spinner loading-lg text-primary"></span>
+                </div>
+              ) : (
+                <button
+                  className="btn btn-primary w-full"
+                  type="submit"
+                >
+                  Create Project
+                </button>
+              )}
             </form>
           </div>
         </div>
       </div>
+      {showModal && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg">Project Created Successfully!</h3>
+            <p className="py-4">Your project has been created and added to the list.</p>
+            <div className="modal-action">
+              <button className="btn btn-primary" onClick={handleModalConfirm}>OK</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
