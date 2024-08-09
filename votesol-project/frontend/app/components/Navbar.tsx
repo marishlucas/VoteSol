@@ -31,16 +31,9 @@ export default function Navbar() {
             </svg>
           </div>
         </div>
-        <a className="btn btn-ghost text-xl">daisyUI</a>
+        <a className="btn btn-ghost text-xl">VoteSol</a>
       </div>
       <div className="navbar-center hidden lg:flex">
-        <ul className="menu menu-horizontal px-1">
-          {connected && (
-            <Link href="/create-project">
-              Create a Project
-            </Link>
-          )}
-        </ul>
       </div>
       <div className="navbar-end">
         <WalletMultiButtonDynamic style={{}} />

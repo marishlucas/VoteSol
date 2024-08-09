@@ -5,6 +5,7 @@ import { getProjects } from '@/utils/solana';
 import Navbar from '@/components/Navbar';
 import Link from 'next/link';
 import ProjectList from './components/ProjectList';
+import CreateProjectButton from './components/CreateProjectButton';
 
 export default function Home() {
   const [userProjects, setUserProjects] = useState<any[]>([]);
@@ -40,8 +41,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-base-200">
       <Navbar />
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl py-8">
-        <h1 className="text-3xl font-bold mb-6 text-center">Crowdfunding Projects</h1>
+      <div className="flex flex-col gap-8 mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl py-8">
+        <div className="flex flex-wrap justify-between">
+          <h1 className="text-3xl font-bold mb-6 text-center">Crowdfunding Projects</h1>
+          <CreateProjectButton />
+        </div>
         {error && <div className="alert alert-error shadow-lg mb-4">{error}</div>}
         {isLoading ? (
           <div className="text-center">
@@ -60,11 +64,6 @@ export default function Home() {
             </div>
           </>
         )}
-        <div className="mt-8 text-center">
-          <Link href="/create-project" className="btn btn-primary">
-            Create New Project
-          </Link>
-        </div>
       </div>
     </div>
   );
