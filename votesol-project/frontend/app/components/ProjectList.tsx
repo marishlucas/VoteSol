@@ -1,32 +1,53 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { getProjects } from '@/utils/solana';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 interface Project {
-  title: string;
-  description: string;
-  target: number;
+  account: {
+    title: string;
+    description: string;
+    target: number;
+    amountCollected: number;
+  };
 }
 
 interface ProjectListProps {
-  projects: Project[];
+  type: 'user' | 'other';
 }
 
-//TODO: fix types
-export default function ProjectList({ initialProjects }: any) {
+export default function ProjectList({ type }: ProjectListProps) {
   const wallet = useWallet();
-  //@ts-ignore
-  const fetcher = () => getProjects(wallet);
-  const { data: projects, error, isLoading } = useSWR('projects', fetcher, {
-    fallbackData: initialProjects,
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-  });
+  const [isWalletReady, setIsWalletReady] = useState(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (wallet.publicKey) {
+      setIsWalletReady(true);
+    }
+  }, [wallet.publicKey]);
+
+  const fetcher = async () => {
+    if (!wallet.publicKey) {
+      throw new Error("Wallet not connected");
+    }
+    //@ts-ignore
+    const allProjects = await getProjects(wallet);
+    return type === 'user' ? allProjects.userProjects : allProjects.otherProjects;
+  };
+
+  const { data: projects, error, isValidating } = useSWR(
+    isWalletReady ? `projects-${type}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    }
+  );
+
+  if (!isWalletReady || isValidating) {
     return (
       <div className="text-center">
         <span className="loading loading-spinner loading-lg"></span>
@@ -38,17 +59,17 @@ export default function ProjectList({ initialProjects }: any) {
     return <div className="alert alert-error shadow-lg mb-4">{error.message}</div>;
   }
 
-  if (!initialProjects || initialProjects.length === 0) {
+  if (!projects || projects.length === 0) {
     return <p className="text-center">No projects found. Be the first to create one!</p>;
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {initialProjects.map((project: any, index: number) => (
+      {projects.map((project: Project, index: number) => (
         <div key={index} className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title">{project.account.title}</h2>
-            <p>{project.account.description && console.log(project.account)}</p>
+            <p>{project.account.description}</p>
             <p className="text-primary">Target: {(project.account.target / LAMPORTS_PER_SOL).toFixed(2)} SOL</p>
             <p className="text-secondary">Collected: {(project.account.amountCollected / LAMPORTS_PER_SOL).toFixed(2)} SOL</p>
             <div className="card-actions justify-end mt-4">

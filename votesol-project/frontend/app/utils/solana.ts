@@ -68,10 +68,15 @@ export const getProjects = cache(async (wallet: anchor.Wallet) => {
   const program = getProgram(wallet);
   try {
     const allProjects = await program.account.project.all();
-    console.log("All projects:", allProjects);
-    return allProjects;
+    const userProjects = allProjects.filter(project =>
+      project.account.creator.equals(wallet.publicKey)
+    );
+    const otherProjects = allProjects.filter(project =>
+      !project.account.creator.equals(wallet.publicKey)
+    );
+    return { userProjects, otherProjects };
   } catch (error) {
-    console.error("Error fetching all projects:", error);
+    console.error("Error fetching projects:", error);
     throw error;
   }
-}, ['projects']);
+});
