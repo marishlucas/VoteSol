@@ -100,7 +100,7 @@ pub struct CreateProject<'info> {
 pub struct Invest<'info> {
     #[account(
         mut,
-        seeds = [b"project", project.title.as_bytes(), project.creator.as_ref()],
+        seeds = [b"project", project.title.as_bytes(), project.creator.key().as_ref()],
         bump
     )]
     pub project: Account<'info, Project>,
