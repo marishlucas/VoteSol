@@ -1,6 +1,4 @@
 'use client';
-// components/ProjectList.tsx
-'use client';
 
 import useSWR from 'swr';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -50,9 +48,11 @@ export default function ProjectList({ initialProjects }: any) {
         <div key={index} className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title">{project.account.title}</h2>
-            <p>{project.account.description}</p>
+            <p>{project.account.description && console.log(project.account)}</p>
             <p className="text-primary">Target: {(project.account.target / LAMPORTS_PER_SOL).toFixed(2)} SOL</p>
-            <div className="card-actions justify-end">
+            <p className="text-secondary">Collected: {(project.account.amountCollected / LAMPORTS_PER_SOL).toFixed(2)} SOL</p>
+            <div className="card-actions justify-end mt-4">
+              <button className="btn btn-outline">Details</button>
               <button className="btn btn-primary">Invest</button>
             </div>
           </div>
