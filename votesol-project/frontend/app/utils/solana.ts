@@ -1,30 +1,43 @@
-import * as anchor from '@coral-xyz/anchor';
-import { clusterApiUrl, PublicKey } from '@solana/web3.js';
+import * as anchor from "@coral-xyz/anchor";
+import { clusterApiUrl, PublicKey, Transaction } from "@solana/web3.js";
 import idl from "./crowdfunding.json";
 import { Crowdfunding } from "./crowdfunding";
-import { cache } from 'react';
+import { cache } from "react";
+import { WalletContextState } from "@solana/wallet-adapter-react";
 
 export const getProgram = (wallet: anchor.Wallet) => {
   // Connect to local cluster
-  const connection = new anchor.web3.Connection(clusterApiUrl("devnet"), "confirmed");
+  const connection = new anchor.web3.Connection(
+    clusterApiUrl("devnet"),
+    "confirmed",
+  );
   const provider = new anchor.AnchorProvider(connection, wallet, {
-    preflightCommitment: 'confirmed',
-    commitment: 'confirmed',
+    preflightCommitment: "confirmed",
+    commitment: "confirmed",
   });
 
   // Initialize the program with IDL and provider
   return new anchor.Program(idl as Crowdfunding, provider);
 };
 
-export const createProject = async (wallet: anchor.Wallet, title: string, description: string, target: number) => {
+export const createProject = async (
+  wallet: anchor.Wallet,
+  title: string,
+  description: string,
+  target: number,
+) => {
   const program = getProgram(wallet);
   const [projectPDA] = PublicKey.findProgramAddressSync(
-    [Buffer.from('project'), Buffer.from(title), wallet.publicKey.toBuffer()],
-    program.programId
+    [Buffer.from("project"), Buffer.from(title), wallet.publicKey.toBuffer()],
+    program.programId,
   );
   try {
     const tx = await program.methods
-      .createProject(title, description, new anchor.BN(target * anchor.web3.LAMPORTS_PER_SOL))
+      .createProject(
+        title,
+        description,
+        new anchor.BN(target * anchor.web3.LAMPORTS_PER_SOL),
+      )
       .accounts({
         //@ts-ignore
         project: projectPDA,
@@ -35,8 +48,8 @@ export const createProject = async (wallet: anchor.Wallet, title: string, descri
     console.log("Project created successfully. Transaction signature:", tx);
 
     // Invalidate the projects cache
-    if (typeof window !== 'undefined') {
-      await fetch('/api/revalidate?tag=projects');
+    if (typeof window !== "undefined") {
+      await fetch("/api/revalidate?tag=projects");
     }
 
     return tx;
@@ -46,11 +59,18 @@ export const createProject = async (wallet: anchor.Wallet, title: string, descri
   }
 };
 
-export const getProjectData = async (wallet: anchor.Wallet, projectTitle: string) => {
+export const getProjectData = async (
+  wallet: anchor.Wallet,
+  projectTitle: string,
+) => {
   const program = getProgram(wallet);
   const [projectPDA] = PublicKey.findProgramAddressSync(
-    [Buffer.from('project'), Buffer.from(projectTitle), wallet.publicKey.toBuffer()],
-    program.programId
+    [
+      Buffer.from("project"),
+      Buffer.from(projectTitle),
+      wallet.publicKey.toBuffer(),
+    ],
+    program.programId,
   );
 
   try {
@@ -61,18 +81,17 @@ export const getProjectData = async (wallet: anchor.Wallet, projectTitle: string
     console.error("Error fetching project data:", error);
     throw error;
   }
-}
-
+};
 
 export const getProjects = cache(async (wallet: anchor.Wallet) => {
   const program = getProgram(wallet);
   try {
     const allProjects = await program.account.project.all();
-    const userProjects = allProjects.filter(project =>
-      project.account.creator.equals(wallet.publicKey)
+    const userProjects = allProjects.filter((project) =>
+      project.account.creator.equals(wallet.publicKey),
     );
-    const otherProjects = allProjects.filter(project =>
-      !project.account.creator.equals(wallet.publicKey)
+    const otherProjects = allProjects.filter(
+      (project) => !project.account.creator.equals(wallet.publicKey),
     );
     return { userProjects, otherProjects };
   } catch (error) {
@@ -80,3 +99,82 @@ export const getProjects = cache(async (wallet: anchor.Wallet) => {
     throw error;
   }
 });
+
+export async function investInProject(
+  wallet: WalletContextState,
+  projectPubkey: PublicKey,
+  projectName: string,
+  amount: number,
+) {
+  if (!wallet.publicKey || !wallet.signTransaction) {
+    throw new Error("Wallet not connected");
+  }
+
+  const connection = new anchor.web3.Connection(
+    clusterApiUrl("devnet"),
+    "confirmed",
+  );
+  const provider = new anchor.AnchorProvider(connection, wallet, {
+    preflightCommitment: "confirmed",
+    commitment: "confirmed",
+  });
+  const program = new anchor.Program(idl as Crowdfunding, provider);
+
+  try {
+    // Fetch the project account to get the creator's public key
+    const projectAccount = await program.account.project.fetch(projectPubkey);
+    const projectCreator = projectAccount.creator;
+
+    const [projectPDA] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("project"),
+        Buffer.from(projectName),
+        projectCreator.toBuffer(),
+      ],
+      program.programId,
+    );
+
+    console.log("Investing in project with PDA:", projectPDA.toBase58());
+
+    const instruction = await program.methods
+      .invest(new anchor.BN(amount))
+      .accounts({
+        project: projectPDA,
+        user: wallet.publicKey,
+      })
+      .instruction();
+
+    const transaction = new Transaction();
+    transaction.add(instruction);
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = wallet.publicKey;
+
+    const signedTransaction = await wallet.signTransaction(transaction);
+    const serializedTransaction = signedTransaction.serialize();
+    const signature = await connection.sendRawTransaction(
+      serializedTransaction,
+    );
+
+    console.log("Investment transaction sent with signature:", signature);
+
+    const confirmation = await connection.confirmTransaction(
+      signature,
+      "confirmed",
+    );
+    console.log("Transaction confirmation:", confirmation);
+
+    if (confirmation.value.err) {
+      throw new Error(
+        `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
+      );
+    }
+
+    console.log("Investment transaction confirmed:", signature);
+    return signature;
+  } catch (error) {
+    console.error("Detailed error in investInProject:", error);
+    throw error;
+  }
+}
