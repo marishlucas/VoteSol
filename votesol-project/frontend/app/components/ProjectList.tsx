@@ -7,6 +7,15 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { getProjects } from '@/utils/solana';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
+interface Project {
+  title: string;
+  description: string;
+  target: number;
+}
+
+interface ProjectListProps {
+  projects: Project[];
+}
 
 //TODO: fix types
 export default function ProjectList({ initialProjects }: any) {
@@ -31,13 +40,13 @@ export default function ProjectList({ initialProjects }: any) {
     return <div className="alert alert-error shadow-lg mb-4">{error.message}</div>;
   }
 
-  if (!projects || projects.length === 0) {
+  if (!initialProjects || initialProjects.length === 0) {
     return <p className="text-center">No projects found. Be the first to create one!</p>;
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {projects.map((project: any, index: number) => (
+      {initialProjects.map((project: any, index: number) => (
         <div key={index} className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title">{project.account.title}</h2>
