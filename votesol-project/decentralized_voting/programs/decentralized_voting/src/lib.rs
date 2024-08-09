@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::clock::Clock;
+use anchor_lang::solana_program::program::invoke_signed;
 
 declare_id!("J78FH4DCfxvVaCJLaFvZaPoYf3V38RXbwWvNXP2zEdGm");
 
@@ -34,13 +35,46 @@ pub mod crowdfunding {
 
     pub fn invest(ctx: Context<Invest>, amount: u64) -> Result<()> {
         let project = &mut ctx.accounts.project;
+        let investor = &ctx.accounts.user;
 
-        // Check if this user has already invested
-        if !project.investors.contains(&ctx.accounts.user.key()) {
+        // Calculate the bump seed
+        let (_, bump) = Pubkey::find_program_address(
+            &[
+                b"project",
+                project.title.as_bytes(),
+                project.creator.as_ref(),
+            ],
+            ctx.program_id,
+        );
+
+        // Create the transfer instruction
+        let ix = anchor_lang::solana_program::system_instruction::transfer(
+            investor.key,
+            &project.key(),
+            amount,
+        );
+
+        // Invoke the transfer instruction with a signature for the PDA
+        invoke_signed(
+            &ix,
+            &[
+                investor.to_account_info(),
+                project.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&[
+                b"project",
+                project.title.as_bytes(),
+                project.creator.as_ref(),
+                &[bump],
+            ]],
+        )?;
+
+        // Update project state
+        if !project.investors.contains(investor.key) {
             project.investor_count += 1;
-            project.investors.push(ctx.accounts.user.key());
+            project.investors.push(*investor.key);
         }
-
         project.amount_collected += amount;
 
         Ok(())
