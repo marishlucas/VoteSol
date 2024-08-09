@@ -41,8 +41,6 @@ export const createProject = async (
       .accounts({
         //@ts-ignore
         project: projectPDA,
-        user: wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
     console.log("Project created successfully. Transaction signature:", tx);
@@ -114,6 +112,8 @@ export async function investInProject(
     clusterApiUrl("devnet"),
     "confirmed",
   );
+
+  //@ts-ignore
   const provider = new anchor.AnchorProvider(connection, wallet, {
     preflightCommitment: "confirmed",
     commitment: "confirmed",
@@ -136,40 +136,16 @@ export async function investInProject(
 
     console.log("Investing in project with PDA:", projectPDA.toBase58());
 
-    const instruction = await program.methods
+    const tx = await program.methods
       .invest(new anchor.BN(amount))
       .accounts({
+        //@ts-ignore
         project: projectPDA,
-        user: wallet.publicKey,
       })
-      .instruction();
+      .transaction();
 
-    const transaction = new Transaction();
-    transaction.add(instruction);
-
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = wallet.publicKey;
-
-    const signedTransaction = await wallet.signTransaction(transaction);
-    const serializedTransaction = signedTransaction.serialize();
-    const signature = await connection.sendRawTransaction(
-      serializedTransaction,
-    );
-
-    console.log("Investment transaction sent with signature:", signature);
-
-    const confirmation = await connection.confirmTransaction(
-      signature,
-      "confirmed",
-    );
-    console.log("Transaction confirmation:", confirmation);
-
-    if (confirmation.value.err) {
-      throw new Error(
-        `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
-      );
-    }
+    const signature = await wallet.sendTransaction(tx, connection);
+    await connection.confirmTransaction(signature, "confirmed");
 
     console.log("Investment transaction confirmed:", signature);
     return signature;
