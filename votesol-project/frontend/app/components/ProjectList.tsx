@@ -12,6 +12,7 @@ interface Project {
     description: string;
     target: number;
     amountCollected: number;
+    investorCount: number;
   };
   publicKey: PublicKey;
 }
@@ -150,6 +151,9 @@ export default function ProjectList({ type }: ProjectListProps) {
                   2,
                 )}{" "}
                 SOL
+              </p>
+              <p className="text-secondary">
+                Number of Investors: {project.account.investorCount / 1}
               </p>
               <div className="card-actions justify-end mt-4">
                 <button
